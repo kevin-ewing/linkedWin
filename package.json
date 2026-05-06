@@ -1,0 +1,30 @@
+{
+  "name": "linkedin-game-solvers",
+  "version": "1.0.0",
+  "description": "Automated solvers for LinkedIn puzzle games (Tango and Zip)",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "solve:tango": "npx ts-node src/solvers/tango/index.ts",
+    "solve:zip": "npx ts-node src/solvers/zip/index.ts"
+  },
+  "keywords": [
+    "linkedin",
+    "games",
+    "solver",
+    "tango",
+    "zip",
+    "puzzle"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.52.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "ts-node": "^10.9.2",
+    "vitest": "^3.1.3",
+    "fast-check": "^4.1.1"
+  }
+}
