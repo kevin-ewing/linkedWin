@@ -34,7 +34,7 @@ describe('connectToBrowser', () => {
 
 describe('findGameTab', () => {
   it('should find a tango game tab by URL', async () => {
-    const mockPage = { url: () => 'https://www.linkedin.com/games/tango' };
+    const mockPage = { url: () => 'https://www.linkedin.com/games/tango', goto: vi.fn().mockResolvedValue(undefined) };
     const mockBrowser = {
       contexts: () => [
         {
@@ -48,7 +48,7 @@ describe('findGameTab', () => {
   });
 
   it('should find a zip game tab by URL', async () => {
-    const mockPage = { url: () => 'https://www.linkedin.com/games/zip' };
+    const mockPage = { url: () => 'https://www.linkedin.com/games/zip', goto: vi.fn().mockResolvedValue(undefined) };
     const mockBrowser = {
       contexts: () => [
         {
@@ -63,7 +63,7 @@ describe('findGameTab', () => {
 
   it('should search across multiple contexts and pages', async () => {
     const otherPage = { url: () => 'https://www.google.com' };
-    const gamePage = { url: () => 'https://www.linkedin.com/games/tango' };
+    const gamePage = { url: () => 'https://www.linkedin.com/games/tango', goto: vi.fn().mockResolvedValue(undefined) };
     const mockBrowser = {
       contexts: () => [
         { pages: () => [otherPage] },
@@ -100,7 +100,7 @@ describe('findGameTab', () => {
   });
 
   it('should match URLs case-insensitively', async () => {
-    const mockPage = { url: () => 'https://www.LinkedIn.com/games/Tango' };
+    const mockPage = { url: () => 'https://www.LinkedIn.com/games/Tango', goto: vi.fn().mockResolvedValue(undefined) };
     const mockBrowser = {
       contexts: () => [
         { pages: () => [mockPage] },

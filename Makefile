@@ -13,27 +13,11 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 chrome: ## Launch Chrome with remote debugging (remembers login)
-	@echo "🚀 Launching Chrome with remote debugging..."
-	@echo "   Profile: $(CHROME_DATA_DIR)"
-	@echo "   Port: 9222"
-	@echo ""
-	@echo "   Log into LinkedIn on first run. Your session will be saved."
-	@echo ""
-	$(CHROME_BIN) --remote-debugging-port=9222 --user-data-dir=$(CHROME_DATA_DIR) "https://www.linkedin.com/games/zip"
+	$(CHROME_BIN) --remote-debugging-port=9222 --user-data-dir=$(CHROME_DATA_DIR) "https://www.linkedin.com/games"
 
-chrome-tango: ## Launch Chrome and open Tango game
-	$(CHROME_BIN) --remote-debugging-port=9222 --user-data-dir=$(CHROME_DATA_DIR) "https://www.linkedin.com/games/tango"
-
-chrome-zip: ## Launch Chrome and open Zip game
-	$(CHROME_BIN) --remote-debugging-port=9222 --user-data-dir=$(CHROME_DATA_DIR) "https://www.linkedin.com/games/zip"
-
-chrome-zip-dev: ## Launch Chrome for Zip with fresh profile (no saved state)
+chrome-dev: ## Launch Chrome with fresh profile (no saved state)
 	@rm -rf $(CHROME_DEV_DIR)
-	$(CHROME_BIN) --remote-debugging-port=9222 --user-data-dir=$(CHROME_DEV_DIR) "https://www.linkedin.com/games/zip"
-
-chrome-tango-dev: ## Launch Chrome for Tango with fresh profile (no saved state)
-	@rm -rf $(CHROME_DEV_DIR)
-	$(CHROME_BIN) --remote-debugging-port=9222 --user-data-dir=$(CHROME_DEV_DIR) "https://www.linkedin.com/games/tango"
+	$(CHROME_BIN) --remote-debugging-port=9222 --user-data-dir=$(CHROME_DEV_DIR) "https://www.linkedin.com/games"
 
 zip: ## Scrape LinkedIn Zip screenshots
 	./scripts/screenshot_playlist.sh zip "$(PLAYLIST_ZIP)"
@@ -42,7 +26,7 @@ tango: ## Scrape LinkedIn Tango screenshots
 	./scripts/screenshot_playlist.sh tango "$(PLAYLIST_TANGO)"
 
 
-.PHONY: solve-tango solve-zip test chrome chrome-tango chrome-zip chrome-zip-dev chrome-tango-dev
+.PHONY: solve-tango solve-zip test chrome chrome-dev
 
 solve-tango: ## Solve LinkedIn Tango puzzle
 	./scripts/solve-tango.sh

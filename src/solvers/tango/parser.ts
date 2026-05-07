@@ -3,19 +3,13 @@ import { TangoCell, TangoConstraint, TangoBoard } from '../../types';
 
 /**
  * Parses the Tango game board from the LinkedIn Games DOM.
- * The game renders inside an iframe with class "lotka-board".
- *
- * LinkedIn Tango DOM structure:
- * - Board: .lotka-board > .lotka-grid
- * - Cells: .lotka-cell with data-cell-idx, aria-describedby for position
- * - Cell values: SVG inside cell with aria-label="Empty"|"Sun"|"Moon"
- * - Pre-filled: .lotka-cell--locked class
- * - Constraints: SVG elements with aria-label="Equal"|"Cross" positioned
- *   inside cells, indicating a constraint with an adjacent cell
+ * Supports both:
+ * - Old iframe DOM: .lotka-cell, SVG aria-labels for values/constraints
+ * - New direct-render DOM: [data-cell-idx], data-cell-content, aria-label
  */
 export async function parseTangoBoard(page: Page | Frame): Promise<TangoBoard> {
-  // Wait for the board to be visible
-  const boardSelector = '.lotka-board, .lotka-grid';
+  // Wait for the board to be visible — try multiple selectors
+  const boardSelector = '.lotka-board, .lotka-grid, [data-cell-idx]';
   try {
     await page.locator(boardSelector).first().waitFor({ state: 'visible', timeout: 5000 });
   } catch {
@@ -28,7 +22,14 @@ export async function parseTangoBoard(page: Page | Frame): Promise<TangoBoard> {
 
   // Extract all cell and constraint data in a single evaluate call
   const boardData = await page.evaluate(() => {
-    const cells = document.querySelectorAll('.lotka-cell');
+    // Try new DOM first ([data-cell-idx]), then old DOM (.lotka-cell)
+    let cells = document.querySelectorAll('[data-cell-idx]');
+    const isNewDom = cells.length > 0 && !cells[0].classList.contains('lotka-cell');
+
+    if (cells.length === 0) {
+      cells = document.querySelectorAll('.lotka-cell');
+    }
+
     if (cells.length === 0) {
       return { cells: [] as any[], constraints: [] as any[], size: 0 };
     }
@@ -43,62 +44,86 @@ export async function parseTangoBoard(page: Page | Frame): Promise<TangoBoard> {
       const cell = cells[i];
       const idx = parseInt(cell.getAttribute('data-cell-idx') || String(i), 10);
       const cls = cell.getAttribute('class') || '';
-      const locked = cls.includes('--locked');
+      const locked = cls.includes('--locked') || cls.includes('locked');
 
-      // Get cell value from SVG aria-label
-      const contentSvg = cell.querySelector('svg.lotka-cell-content-img, svg[aria-label="Sun"], svg[aria-label="Moon"], svg[aria-label="Empty"]');
       let value: 'sun' | 'moon' | null = null;
-      if (contentSvg) {
-        const aria = contentSvg.getAttribute('aria-label') || '';
-        if (aria === 'Sun') value = 'sun';
-        else if (aria === 'Moon') value = 'moon';
+
+      if (isNewDom) {
+        // New DOM: check aria-label on cell or child content elements
+        const contentEl = cell.querySelector('[data-cell-content]');
+        if (contentEl) {
+          const aria = (contentEl.getAttribute('aria-label') || '').toLowerCase();
+          const text = (contentEl.textContent || '').trim().toLowerCase();
+          if (aria.includes('sun') || text.includes('sun') || text === '☀') value = 'sun';
+          else if (aria.includes('moon') || text.includes('moon') || text === '🌙') value = 'moon';
+        }
+        // Also check SVGs with aria-label
+        if (!value) {
+          const svg = cell.querySelector('svg[aria-label]');
+          if (svg) {
+            const aria = svg.getAttribute('aria-label') || '';
+            if (aria === 'Sun') value = 'sun';
+            else if (aria === 'Moon') value = 'moon';
+          }
+        }
+        // Check cell's own aria-label
+        if (!value) {
+          const cellAria = (cell.getAttribute('aria-label') || '').toLowerCase();
+          if (cellAria.includes('sun')) value = 'sun';
+          else if (cellAria.includes('moon')) value = 'moon';
+        }
+      } else {
+        // Old DOM: SVG with aria-label inside .lotka-cell
+        const contentSvg = cell.querySelector('svg[aria-label="Sun"], svg[aria-label="Moon"]');
+        if (contentSvg) {
+          const aria = contentSvg.getAttribute('aria-label') || '';
+          if (aria === 'Sun') value = 'sun';
+          else if (aria === 'Moon') value = 'moon';
+        }
       }
 
       cellData.push({ idx, value, locked });
 
-      // Look for constraint SVGs inside this cell
-      // Constraints are SVGs with aria-label="Equal" or "Cross" that indicate
-      // a relationship with an adjacent cell
-      const constraintSvgs = cell.querySelectorAll('svg[aria-label="Equal"], svg[aria-label="Cross"]');
-      for (const svg of constraintSvgs) {
-        const aria = svg.getAttribute('aria-label') || '';
-        const type: 'equal' | 'opposite' = aria === 'Equal' ? 'equal' : 'opposite';
+      // Look for constraint indicators
+      if (isNewDom) {
+        // New DOM: constraints may be SVGs or elements with aria-label "Equal"/"Cross"
+        // or child elements with specific content
+        const constraintEls = cell.querySelectorAll(
+          'svg[aria-label="Equal"], svg[aria-label="Cross"], ' +
+          '[aria-label="Equal"], [aria-label="Cross"], ' +
+          '[data-constraint]'
+        );
+        for (const el of constraintEls) {
+          const aria = (el.getAttribute('aria-label') || el.getAttribute('data-constraint') || '').toLowerCase();
+          let type: 'equal' | 'opposite';
+          if (aria.includes('equal') || aria.includes('same')) type = 'equal';
+          else if (aria.includes('cross') || aria.includes('opposite') || aria.includes('x')) type = 'opposite';
+          else continue;
 
-        // Determine direction based on the constraint SVG's position/class
-        // The constraint is between this cell and an adjacent one.
-        // We need to figure out if it's to the right or below.
-        // Check the parent wrapper's class for direction hints
-        const parent = svg.parentElement;
-        const parentCls = parent?.getAttribute('class') || '';
+          // Determine direction by position
+          const cellRect = cell.getBoundingClientRect();
+          const elRect = el.getBoundingClientRect();
+          const dx = (elRect.x + elRect.width / 2) - (cellRect.x + cellRect.width / 2);
+          const dy = (elRect.y + elRect.height / 2) - (cellRect.y + cellRect.height / 2);
 
-        let direction: 'right' | 'down' = 'right'; // default
+          const direction: 'right' | 'down' = Math.abs(dy) > Math.abs(dx) ? 'down' : 'right';
+          constraints.push({ cellIdx: idx, type, direction });
+        }
+      } else {
+        // Old DOM: SVGs with aria-label="Equal" or "Cross"
+        const constraintSvgs = cell.querySelectorAll('svg[aria-label="Equal"], svg[aria-label="Cross"]');
+        for (const svg of constraintSvgs) {
+          const aria = svg.getAttribute('aria-label') || '';
+          const type: 'equal' | 'opposite' = aria === 'Equal' ? 'equal' : 'opposite';
 
-        if (parentCls.includes('bottom') || parentCls.includes('down') || parentCls.includes('vertical')) {
-          direction = 'down';
-        } else if (parentCls.includes('right') || parentCls.includes('horizontal')) {
-          direction = 'right';
-        } else {
-          // Heuristic: check SVG position relative to cell center
           const cellRect = cell.getBoundingClientRect();
           const svgRect = svg.getBoundingClientRect();
-          const svgCenterX = svgRect.x + svgRect.width / 2;
-          const svgCenterY = svgRect.y + svgRect.height / 2;
-          const cellCenterX = cellRect.x + cellRect.width / 2;
-          const cellCenterY = cellRect.y + cellRect.height / 2;
+          const dx = (svgRect.x + svgRect.width / 2) - (cellRect.x + cellRect.width / 2);
+          const dy = (svgRect.y + svgRect.height / 2) - (cellRect.y + cellRect.height / 2);
 
-          // If SVG is more to the right of cell center, it's a right constraint
-          // If SVG is more below cell center, it's a down constraint
-          const dx = svgCenterX - cellCenterX;
-          const dy = svgCenterY - cellCenterY;
-
-          if (Math.abs(dy) > Math.abs(dx)) {
-            direction = dy > 0 ? 'down' : 'down'; // below = down constraint
-          } else {
-            direction = 'right';
-          }
+          const direction: 'right' | 'down' = Math.abs(dy) > Math.abs(dx) ? 'down' : 'right';
+          constraints.push({ cellIdx: idx, type, direction });
         }
-
-        constraints.push({ cellIdx: idx, type, direction });
       }
     }
 

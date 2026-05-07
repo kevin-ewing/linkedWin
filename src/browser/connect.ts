@@ -27,17 +27,21 @@ export async function connectToBrowser(): Promise<Browser> {
 
 /**
  * Finds the browser tab containing the LinkedIn game by URL pattern.
+ * If found, navigates to the game URL to ensure we're on the start screen.
  * For Tango: URL contains 'linkedin.com' and 'tango'
  * For Zip: URL contains 'linkedin.com' and 'zip'
  */
 export async function findGameTab(browser: Browser, gameType: 'tango' | 'zip'): Promise<Page> {
   const contexts = browser.contexts();
+  const gameUrl = `https://www.linkedin.com/games/${gameType}`;
 
   for (const context of contexts) {
     const pages = context.pages();
     for (const page of pages) {
       const url = page.url().toLowerCase();
       if (url.includes('linkedin.com') && url.includes(gameType)) {
+        // Navigate to the game URL to reset to start screen
+        await page.goto(gameUrl, { waitUntil: 'domcontentloaded' });
         return page;
       }
     }

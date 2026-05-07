@@ -86,12 +86,12 @@ export async function executeTangoMoves(
   }
 
   // Wait once for the first cell to confirm board is ready
-  const firstSelector = `.lotka-cell[data-cell-idx="${moves[0].cellIdx}"]`;
+  const firstSelector = `[data-cell-idx="${moves[0].cellIdx}"]`;
   await target.locator(firstSelector).first().waitFor({ state: 'visible', timeout: 3000 });
 
   // Click all cells as fast as possible — no delays, no per-cell waitFor
   for (const move of moves) {
-    const cellSelector = `.lotka-cell[data-cell-idx="${move.cellIdx}"]`;
+    const cellSelector = `[data-cell-idx="${move.cellIdx}"]`;
     const cell = target.locator(cellSelector).first();
     for (let i = 0; i < move.clicks; i++) {
       await cell.click();
@@ -128,7 +128,7 @@ export async function executeZipMoves(
     // Click the first cell to start the path
     const startCell = path[0];
     const startIdx = startCell.row * cols + startCell.col;
-    const startSelector = `.trail-cell[data-cell-idx="${startIdx}"]`;
+    const startSelector = `[data-cell-idx="${startIdx}"]`;
     const startEl = target.locator(startSelector).first();
     await startEl.waitFor({ state: 'visible', timeout: 3000 });
     await startEl.click();
