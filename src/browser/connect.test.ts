@@ -79,23 +79,23 @@ describe('findGameTab', () => {
     const mockBrowser = {
       contexts: () => [
         {
-          pages: () => [{ url: () => 'https://www.google.com' }],
+          pages: () => [{ url: () => 'https://www.google.com', goto: vi.fn().mockResolvedValue(undefined) }],
         },
       ],
     };
 
-    await expect(findGameTab(mockBrowser as any, 'tango')).rejects.toThrow(
-      'Could not find a LinkedIn tango game tab'
-    );
+    // Should navigate the available tab to the game instead of throwing
+    const page = await findGameTab(mockBrowser as any, 'tango');
+    expect(page).toBeDefined();
   });
 
-  it('should throw an error with instructions when no tab found', async () => {
+  it('should throw an error when no tabs available', async () => {
     const mockBrowser = {
       contexts: () => [],
     };
 
     await expect(findGameTab(mockBrowser as any, 'zip')).rejects.toThrow(
-      'Please navigate to the LinkedIn Zip game page'
+      'Could not find any browser tab'
     );
   });
 

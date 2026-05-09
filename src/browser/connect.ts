@@ -26,30 +26,52 @@ export async function connectToBrowser(): Promise<Browser> {
 }
 
 /**
- * Finds the browser tab containing the LinkedIn game by URL pattern.
- * If found, navigates to the game URL to ensure we're on the start screen.
- * For Tango: URL contains 'linkedin.com' and 'tango'
- * For Zip: URL contains 'linkedin.com' and 'zip'
+ * Finds a suitable browser tab and navigates to the LinkedIn game.
+ * Strategy:
+ * 1. Look for a tab already on the game page
+ * 2. Look for any LinkedIn tab and navigate it to the game
+ * 3. Use the first available tab and navigate it to the game
  */
 export async function findGameTab(browser: Browser, gameType: 'tango' | 'zip'): Promise<Page> {
   const contexts = browser.contexts();
   const gameUrl = `https://www.linkedin.com/games/${gameType}`;
 
+  let linkedInPage: Page | null = null;
+  let anyPage: Page | null = null;
+
   for (const context of contexts) {
     const pages = context.pages();
     for (const page of pages) {
       const url = page.url().toLowerCase();
+
+      // Best case: already on the game page
       if (url.includes('linkedin.com') && url.includes(gameType)) {
-        // Navigate to the game URL to reset to start screen
         await page.goto(gameUrl, { waitUntil: 'domcontentloaded' });
         return page;
+      }
+
+      // Second best: any LinkedIn page
+      if (url.includes('linkedin.com') && !linkedInPage) {
+        linkedInPage = page;
+      }
+
+      // Fallback: any page at all
+      if (!anyPage && url !== 'about:blank') {
+        anyPage = page;
       }
     }
   }
 
+  // Navigate a LinkedIn tab or any available tab to the game
+  const targetPage = linkedInPage || anyPage;
+  if (targetPage) {
+    await targetPage.goto(gameUrl, { waitUntil: 'domcontentloaded' });
+    return targetPage;
+  }
+
   throw new Error(
-    `Could not find a LinkedIn ${gameType} game tab.\n` +
-    `Please navigate to the LinkedIn ${gameType.charAt(0).toUpperCase() + gameType.slice(1)} game page in Chrome before running the solver.`
+    `Could not find any browser tab to use.\n` +
+    `Please make sure Chrome is open with at least one tab.`
   );
 }
 
