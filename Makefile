@@ -26,13 +26,16 @@ tango: ## Scrape LinkedIn Tango screenshots
 	./scripts/screenshot_playlist.sh tango "$(PLAYLIST_TANGO)"
 
 
-.PHONY: solve-tango solve-zip test chrome chrome-dev
+.PHONY: solve-tango solve-zip solve-patches test chrome chrome-dev
 
 solve-tango: ## Solve LinkedIn Tango puzzle
 	./scripts/solve-tango.sh
 
 solve-zip: ## Solve LinkedIn Zip puzzle
 	./scripts/solve-zip.sh
+
+solve-patches: ## Solve LinkedIn Patches puzzle
+	./scripts/solve-patches.sh
 
 test: ## Run tests
 	npm test

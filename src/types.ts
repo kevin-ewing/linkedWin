@@ -36,3 +36,32 @@ export interface ZipBoard {
   numberedCells: { row: number; col: number; number: number }[];
   walls: ZipWalls; // barriers between cells
 }
+
+// ============================================================================
+// Patches types
+// ============================================================================
+
+export type PatchShape = 'freeform' | 'wide_rectangle' | 'tall_rectangle' | 'square';
+
+export interface PatchClue {
+  row: number;
+  col: number;
+  color: string;
+  shape: PatchShape;
+  size: number | null; // null = unspecified (any size rectangle matching shape)
+}
+
+export interface PatchesBoard {
+  rows: number;
+  cols: number;
+  clues: PatchClue[];
+}
+
+/** A solved patch: the rectangle covering a clue */
+export interface PatchRect {
+  clueIdx: number;
+  top: number;
+  left: number;
+  bottom: number; // inclusive
+  right: number;  // inclusive
+}

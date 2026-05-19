@@ -32,7 +32,7 @@ export async function connectToBrowser(): Promise<Browser> {
  * 2. Look for any LinkedIn tab and navigate it to the game
  * 3. Use the first available tab and navigate it to the game
  */
-export async function findGameTab(browser: Browser, gameType: 'tango' | 'zip'): Promise<Page> {
+export async function findGameTab(browser: Browser, gameType: 'tango' | 'zip' | 'patches'): Promise<Page> {
   const contexts = browser.contexts();
   const gameUrl = `https://www.linkedin.com/games/${gameType}`;
 
