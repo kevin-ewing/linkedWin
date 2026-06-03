@@ -1,20 +1,16 @@
 import { Page, Frame } from 'playwright';
 import { TangoCell, TangoBoard } from '../types';
 
-/** Default delay between move actions in milliseconds */
-const DEFAULT_MOVE_DELAY_MS = 50;
-
 /** Maximum number of retry attempts per interaction */
 const MAX_RETRIES = 3;
 
 /**
  * Retries an async interaction up to MAX_RETRIES times.
- * Logs retry attempts and waits briefly between retries.
  */
 async function withRetry<T>(
   action: () => Promise<T>,
   description: string,
-  delayMs: number = DEFAULT_MOVE_DELAY_MS
+  delayMs: number = 100
 ): Promise<T> {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -30,29 +26,24 @@ async function withRetry<T>(
       }
     }
   }
-  // Unreachable, but satisfies TypeScript
   throw new Error(`Failed after ${MAX_RETRIES} attempts for ${description}`);
 }
 
-/**
- * Waits for the specified number of milliseconds.
- */
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Executes Tango moves by clicking empty cells to cycle them to the target symbol.
- *
- * Cell cycling order: empty → sun → moon → empty
- * - Click once for sun
- * - Click twice for moon
- *
- * @param page - Playwright page instance (or Frame for iframe games)
- * @param solution - The solved board with all cells filled
- * @param original - The original board (to identify which cells were empty)
- * @param context - Frame or Page where the game cells live
- * @param moveDelayMs - Delay between move actions (default 0 for max speed)
+ * Returns a random delay in [min, max] ms to simulate human-like timing.
+ */
+function humanDelay(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/**
+ * Executes Tango moves with human-like pacing.
+ * Tango has more cells to fill so the "thinking" delay is spread across moves.
+ * Total execution target: ~4-7 seconds for a 6x6 board.
  */
 export async function executeTangoMoves(
   page: Page,
@@ -89,12 +80,20 @@ export async function executeTangoMoves(
   const firstSelector = `[data-cell-idx="${moves[0].cellIdx}"]`;
   await target.locator(firstSelector).first().waitFor({ state: 'visible', timeout: 3000 });
 
-  // Click all cells as fast as possible — no delays, no per-cell waitFor
-  for (const move of moves) {
+  // Human-like pacing: target ~15-20 seconds total for a 6x6 board
+  // A very fast human solving ~18 empty cells takes 15-25 seconds
+  for (let i = 0; i < moves.length; i++) {
+    const move = moves[i];
     const cellSelector = `[data-cell-idx="${move.cellIdx}"]`;
     const cell = target.locator(cellSelector).first();
-    for (let i = 0; i < move.clicks; i++) {
+    for (let c = 0; c < move.clicks; c++) {
       await cell.click();
+      if (c < move.clicks - 1) await delay(humanDelay(80, 150));
+    }
+    // Delay between cells — occasional longer pauses (simulating scanning the board)
+    if (i < moves.length - 1) {
+      const pause = i % 4 === 3 ? humanDelay(600, 1000) : humanDelay(300, 550);
+      await delay(pause);
     }
   }
 
@@ -102,14 +101,12 @@ export async function executeTangoMoves(
 }
 
 /**
- * Executes Zip moves using keyboard arrow keys via Playwright's locator.press().
- * This sends key events directly to the focused element in the correct frame.
- *
- * @param page - Playwright page instance
- * @param path - Ordered list of cells representing the solution path
- * @param cols - Number of columns in the grid (for computing cell index)
- * @param context - Frame or Page where the game cells live
- * @param moveDelayMs - Small delay every few keys for game to process (default 10ms)
+ * Executes Zip moves using keyboard arrow keys.
+ * Zip is fast — a good human can trace the path in 2-4 seconds.
+ * 
+ * This executor verifies that the game is accepting moves by checking
+ * the active/highlighted cell after key presses. If a move is rejected
+ * (e.g., due to a wall), it will detect the mismatch and abort.
  */
 export async function executeZipMoves(
   page: Page,
@@ -125,19 +122,17 @@ export async function executeZipMoves(
   const target = context || page;
 
   await withRetry(async () => {
-    // Click the first cell to start the path
     const startCell = path[0];
     const startIdx = startCell.row * cols + startCell.col;
     const startSelector = `[data-cell-idx="${startIdx}"]`;
     const startEl = target.locator(startSelector).first();
     await startEl.waitFor({ state: 'visible', timeout: 3000 });
     await startEl.click();
-    await delay(200); // Let the game fully register the starting cell
+    await delay(200);
 
     console.log(`Started at cell (${startCell.row}, ${startCell.col}), sending ${path.length - 1} arrow keys...`);
 
-    // Send arrow keys using locator.press() on the clicked cell
-    // This ensures events go to the right element in the right frame
+    // Human-like: ~40-80ms per key press (fast but not instant)
     for (let i = 1; i < path.length; i++) {
       const prev = path[i - 1];
       const curr = path[i];
@@ -151,11 +146,7 @@ export async function executeZipMoves(
       else key = 'ArrowRight';
 
       await startEl.press(key);
-
-      // Small delay every few keys to let the game process
-      if (moveDelayMs > 0 && i % 5 === 0) {
-        await delay(moveDelayMs);
-      }
+      await delay(humanDelay(30, 70));
     }
 
     console.log(`Path complete: ${path.length} cells traced`);

@@ -27,6 +27,10 @@ async function main() {
     const board = await parseZipBoard(context);
     console.log(`   Board: ${board.rows}x${board.cols}, ${board.numberedCells.length} waypoints, ${board.walls.size} cells with walls`);
 
+    for (const wp of board.numberedCells) {
+      console.log(`   Waypoint ${wp.number}: (${wp.row}, ${wp.col})`);
+    }
+
     stage = 'solving';
     console.log('🧠 Solving...');
     const path = solveZip(board);
@@ -34,6 +38,21 @@ async function main() {
       throw new Error('No solution found for the given Zip board');
     }
     console.log(`   Solution: ${path.length} cells`);
+
+    // Validate: print solution path with waypoint verification
+    const waypointPositions = new Map(board.numberedCells.map(w => [`${w.row},${w.col}`, w.number]));
+    let lastWp = 0;
+    for (let i = 0; i < path.length; i++) {
+      const key = `${path[i].row},${path[i].col}`;
+      const wp = waypointPositions.get(key);
+      if (wp !== undefined) {
+        if (wp !== lastWp + 1) {
+          console.error(`   ❌ INVALID: Hit waypoint ${wp} at step ${i} but expected ${lastWp + 1}`);
+        }
+        lastWp = wp;
+        console.log(`   Step ${i}: (${path[i].row},${path[i].col}) = waypoint ${wp} ✓`);
+      }
+    }
 
     stage = 'executing moves';
     console.log('🎮 Executing moves...');
