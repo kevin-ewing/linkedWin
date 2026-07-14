@@ -47,10 +47,13 @@ solve-all: ## Launch Chrome, solve all three games, return to games menu
 	done
 	@echo "Solving Tango..."
 	./scripts/solve-tango.sh
+	@sleep 5
 	@echo "Solving Zip..."
 	./scripts/solve-zip.sh
+	@sleep 5
 	@echo "Solving Patches..."
 	./scripts/solve-patches.sh
+	@sleep 5
 	@echo "Navigating back to games menu..."
 	@node -e "const{chromium}=require('playwright');(async()=>{const b=await chromium.connectOverCDP('http://localhost:9222');const p=b.contexts()[0].pages()[0];await p.goto('https://www.linkedin.com/games',{waitUntil:'domcontentloaded'});b.close();})()"
 	@echo "Done! All games solved."
